@@ -1,0 +1,26 @@
+version: "{build}"
+
+os: Windows Server 2012 R2
+
+clone_folder: c:\gopath\src\github.com\ricottadeploy\ricotta
+
+environment:
+  GOPATH: c:\gopath
+
+install:
+  - rmdir c:\go /s /q
+  - appveyor DownloadFile https://storage.googleapis.com/golang/go1.9.windows-amd64.zip
+  - 7z x go1.9.windows-amd64.zip -y -oC:\ > NUL
+  - set PATH=%GOPATH%\bin;%PATH%
+  - go version
+  - go env
+  - go get -t ./...
+  - go get github.com/golang/lint/golint
+
+build: off
+
+test_script:
+  - golint ./...
+  - go test -v ./...
+
+deploy: off
