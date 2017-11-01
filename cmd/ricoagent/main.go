@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ricottadeploy/ricotta/security"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -11,6 +12,8 @@ import (
 var (
 	basePath string
 	cfgFile  string
+	certFile string
+	keyFile  string
 )
 
 func main() {
@@ -38,5 +41,18 @@ var rootCmd = &cobra.Command{
 		fmt.Println("Ricotta Agent")
 		agentid := viper.GetString("id")
 		fmt.Printf("Agent ID: %s\n", agentid)
+		generateCertIfNotExist()
 	},
+}
+
+func generateCertIfNotExist() {
+	certsPath := basePath + "/certs"
+	certFile = certsPath + "/certificate.pem"
+	keyFile = certsPath + "/private.pem"
+	created := security.GenerateDefaultX509SelfSignedCertIfNotExist(certFile, keyFile)
+	if created {
+		fmt.Println("Generated certificate")
+	}
+	fingerprint := security.GetX509CertSHA1Fingerprint(certFile)
+	fmt.Printf("SHA1 Fingerprint: %s\n", fingerprint)
 }
