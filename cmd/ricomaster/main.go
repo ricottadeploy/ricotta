@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ricottadeploy/ricotta/master"
 	"github.com/ricottadeploy/ricotta/security"
 
 	"github.com/spf13/cobra"
@@ -11,10 +12,12 @@ import (
 )
 
 var (
-	basePath string
-	cfgFile  string
-	certFile string
-	keyFile  string
+	basePath       string
+	cfgFile        string
+	certFile       string
+	keyFile        string
+	acceptedAgents master.AgentStore
+	deniedAgents   master.AgentStore
 )
 
 func main() {
@@ -43,6 +46,11 @@ var rootCmd = &cobra.Command{
 		masterid := viper.GetString("id")
 		fmt.Printf("Master ID: %s\n", masterid)
 		generateCertIfNotExist()
+
+		agentsFile := basePath + "/conf/agents.yaml"
+		acceptedAgents = master.NewAgentStore()
+		acceptedAgents.ReadFromYamlFile(agentsFile)
+		fmt.Printf("Accepted agents:\n%s\n", acceptedAgents.ToYaml())
 	},
 }
 
@@ -55,5 +63,5 @@ func generateCertIfNotExist() {
 		fmt.Println("Generated certificate")
 	}
 	fingerprint := security.GetX509CertSHA1Fingerprint(certFile)
-	fmt.Printf("SHA1 Fingerprint: %s\n", fingerprint)
+	fmt.Printf("Fingerprint: %s\n", fingerprint)
 }
