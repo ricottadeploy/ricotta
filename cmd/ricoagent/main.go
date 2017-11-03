@@ -90,10 +90,15 @@ func connect() {
 	fmt.Println("Listening to commands from master")
 	cc := comms.NewConn(conn)
 	for {
-		data, err := cc.Read()
+		msgFrame, err := cc.ReadMsgFrame()
 		if err != nil {
 			log.Fatalf("Error while communicating with master: %s", err)
 		}
-		fmt.Println(string(data))
+		fmt.Printf("Type: %d\n", msgFrame.Type)
+		if msgFrame.Type == comms.MsgTypeInfo {
+			msg, _ := comms.ToInfoMessage(msgFrame.Data)
+			fmt.Println(msg.Text)
+		}
+
 	}
 }

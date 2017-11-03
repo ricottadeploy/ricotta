@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"net"
+
+	"github.com/vmihailenco/msgpack"
 )
 
 type Conn struct {
@@ -42,4 +44,26 @@ func (conn *Conn) Read() ([]byte, error) {
 		return nil, errors.New("Unexpected message size")
 	}
 	return data, nil
+}
+
+func (conn *Conn) SendMsgFrame(frame MsgFrame) error {
+	bytes, err := msgpack.Marshal(frame)
+	if err != nil {
+		return errors.New("Error while marshalling message")
+	}
+	conn.Write(bytes)
+	return nil
+}
+
+func (conn *Conn) ReadMsgFrame() (MsgFrame, error) {
+	frame := MsgFrame{}
+	bytes, err := conn.Read()
+	if err != nil {
+		return frame, errors.New("Error while reading message")
+	}
+	err1 := msgpack.Unmarshal(bytes, &frame)
+	if err1 != nil {
+		return frame, errors.New("Error while unmarshalling MsgFrame")
+	}
+	return frame, nil
 }

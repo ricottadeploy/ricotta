@@ -125,7 +125,8 @@ func handle(conn net.Conn) {
 	fmt.Printf("ACCEPTED\n")
 	cc := comms.NewConn(conn)
 	for {
-		cc.Write([]byte("How"))
+		msg, _ := comms.NewInfoMessage("Hello, world!")
+		cc.SendMsgFrame(msg)
 		time.Sleep(2 * time.Second)
 	}
 }
