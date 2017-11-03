@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"time"
 
 	"github.com/ricottadeploy/ricotta/comms"
 	"github.com/ricottadeploy/ricotta/security"
@@ -43,7 +45,16 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Ricotta Agent")
 		generateCertIfNotExist()
-		connect()
+		for {
+			c, conerr := connect()
+			if conerr != nil {
+				fmt.Printf("Connection Error: %s\n", conerr)
+			} else {
+				err := listen(c)
+				fmt.Printf("Communication Error: %s\n", err)
+			}
+			time.Sleep(1 * time.Second)
+		}
 	},
 }
 
@@ -59,7 +70,7 @@ func generateCertIfNotExist() {
 	fmt.Printf("Fingerprint: %s\n", fingerprint)
 }
 
-func connect() {
+func connect() (net.Conn, error) {
 	masterAddr := viper.GetString("master.address")
 	masterFingerprint := viper.GetString("master.fingerprint")
 	fmt.Printf("Connecting to master at %s\n", masterAddr)
@@ -75,30 +86,32 @@ func connect() {
 	tlsCfg.BuildNameToCertificate()
 	conn, err := tls.Dial("tcp4", masterAddr, tlsCfg)
 	if err != nil {
-		log.Fatal("Error connecting to server: ", err)
+		return conn, err
 	}
-
-	defer func() {
-		conn.Close()
-	}()
 
 	fingPrint := security.GetPeerFingerprint(conn)
 	if fingPrint != masterFingerprint {
 		log.Fatalf("Trusted master fingerprint is: %s\nFingerprint of master at %s is: %s\nExiting...", masterFingerprint, masterAddr, fingPrint)
 	}
 	fmt.Printf("Master fingerprint verified. Connection successful.\n")
+	return conn, nil
+}
+
+func listen(conn net.Conn) error {
 	fmt.Println("Listening to commands from master")
 	cc := comms.NewConn(conn)
 	for {
 		msgFrame, err := cc.ReadMsgFrame()
 		if err != nil {
-			log.Fatalf("Error while communicating with master: %s", err)
+			return err
 		}
-		fmt.Printf("Type: %d\n", msgFrame.Type)
+		fmt.Printf("Received Message Type: %d\n", msgFrame.Type)
 		if msgFrame.Type == comms.MsgTypeInfo {
-			msg, _ := comms.ToInfoMessage(msgFrame.Data)
+			msg, err := comms.ToInfoMessage(msgFrame.Data)
+			if err != nil {
+				return err
+			}
 			fmt.Println(msg.Text)
 		}
-
 	}
 }

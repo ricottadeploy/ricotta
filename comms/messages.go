@@ -26,7 +26,7 @@ func NewInfoMessage(text string) (MsgFrame, error) {
 	msg := InfoMessage{Text: text}
 	msgBytes, err := msgpack.Marshal(msg)
 	if err != nil {
-		return MsgFrame{}, errors.New("Error while marshalling message")
+		return MsgFrame{}, errors.New("Error while marshalling InfoMessage")
 	}
 	frame := MsgFrame{Type: MsgTypeInfo, Data: msgBytes}
 	return frame, nil
