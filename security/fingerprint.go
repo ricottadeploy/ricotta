@@ -10,8 +10,6 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
-
-	"github.com/ricottadeploy/common/x509cert"
 )
 
 type Fingerprint string
@@ -30,7 +28,7 @@ func GetPeerFingerprint(conn *tls.Conn) string {
 	peerCert := state.PeerCertificates[0]
 	publicKey := peerCert.PublicKey.(*rsa.PublicKey)
 	pubKeyBytes, _ := x509.MarshalPKIXPublicKey(publicKey)
-	fingerPrint := x509cert.GetFingerprintSHA1(pubKeyBytes)
+	fingerPrint := GetSHA1Fingerprint(pubKeyBytes)
 	return fingerPrint
 }
 
