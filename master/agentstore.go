@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/ricottadeploy/ricotta/security"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -14,7 +15,7 @@ type Agent struct {
 }
 
 type AgentStore struct {
-	agentsMap map[Fingerprint]Agent
+	agentsMap map[security.Fingerprint]Agent
 }
 
 func NewAgentStore() AgentStore {
@@ -30,7 +31,7 @@ func (store *AgentStore) ReadFromYamlFile(agentsFile string) {
 	if err1 != nil {
 		log.Fatalf("Error parsing agents file %s: %s", agentsFile, err1)
 	}
-	for k, _ := range store.agentsMap {
+	for k := range store.agentsMap {
 		if !k.Valid() {
 			log.Fatalf("Error parsing agents file %s: Invalid fingerprint %s", agentsFile, k)
 		}
@@ -40,21 +41,26 @@ func (store *AgentStore) ReadFromYamlFile(agentsFile string) {
 func (store *AgentStore) ToYaml() string {
 	b, err := yaml.Marshal(store.agentsMap)
 	if err != nil {
-		log.Fatal("Error while marshalling: %s", err)
+		log.Fatalf("Error while marshalling: %s", err)
 	}
 	return string(b)
 }
 
-func (store *AgentStore) Add(fingerprint Fingerprint, agent Agent) {
+func (store *AgentStore) Add(fingerprint security.Fingerprint, agent Agent) {
 	if !fingerprint.Valid() {
-		log.Fatal("Invalid fingerprint %s: ", fingerprint)
+		log.Fatalf("Invalid fingerprint %s: ", fingerprint)
 	}
 	store.agentsMap[fingerprint] = agent
 }
 
-func (store *AgentStore) Remove(fingerprint Fingerprint) {
+func (store *AgentStore) Remove(fingerprint security.Fingerprint) {
 	if !fingerprint.Valid() {
-		log.Fatal("Invalid fingerprint %s: ", fingerprint)
+		log.Fatalf("Invalid fingerprint %s: ", fingerprint)
 	}
 	delete(store.agentsMap, fingerprint)
+}
+
+func (store *AgentStore) Get(fingerprint security.Fingerprint) (Agent, bool) {
+	agent, ok := store.agentsMap[fingerprint]
+	return agent, ok
 }

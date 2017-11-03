@@ -1,8 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
 	"os"
+	"time"
 
 	"github.com/ricottadeploy/ricotta/master"
 	"github.com/ricottadeploy/ricotta/security"
@@ -17,7 +23,6 @@ var (
 	certFile       string
 	keyFile        string
 	acceptedAgents master.AgentStore
-	deniedAgents   master.AgentStore
 )
 
 func main() {
@@ -43,14 +48,9 @@ func initConfig() {
 var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Ricotta Master")
-		masterid := viper.GetString("id")
-		fmt.Printf("Master ID: %s\n", masterid)
 		generateCertIfNotExist()
-
-		agentsFile := basePath + "/conf/agents.yaml"
-		acceptedAgents = master.NewAgentStore()
-		acceptedAgents.ReadFromYamlFile(agentsFile)
-		fmt.Printf("Accepted agents:\n%s\n", acceptedAgents.ToYaml())
+		readAgentsFile()
+		listen()
 	},
 }
 
@@ -64,4 +64,65 @@ func generateCertIfNotExist() {
 	}
 	fingerprint := security.GetX509CertSHA1Fingerprint(certFile)
 	fmt.Printf("Fingerprint: %s\n", fingerprint)
+}
+
+func readAgentsFile() {
+	agentsFile := basePath + "/conf/agents.yaml"
+	acceptedAgents = master.NewAgentStore()
+	acceptedAgents.ReadFromYamlFile(agentsFile)
+	fmt.Printf("Accepted agents:\n%s\n", acceptedAgents.ToYaml())
+}
+
+func listen() {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Fatal("Error loading certificate. ", err)
+	}
+
+	caCert, err := ioutil.ReadFile(certFile)
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	tlsCfg := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		ClientAuth:         tls.RequireAnyClientCert,
+		InsecureSkipVerify: true,
+	}
+	tlsCfg.BuildNameToCertificate()
+	listenAddr := viper.GetString("listen_address")
+	listener, err := tls.Listen("tcp4", listenAddr, tlsCfg)
+	fmt.Printf("Listening at %s\n", listenAddr)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer listener.Close()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go handle(conn)
+	}
+}
+
+func handle(conn net.Conn) {
+	defer func() {
+		conn.Close()
+	}()
+
+	c := conn.(*tls.Conn)
+	fingPrint := security.GetPeerFingerprint(c)
+	fmt.Printf("Connection request from agent with fingerprint %s: ", fingPrint)
+	_, found := acceptedAgents.Get(security.Fingerprint(fingPrint))
+	if !found {
+		fmt.Printf("DENIED\n")
+		return
+	}
+	fmt.Printf("ACCEPTED\n")
+	for {
+		c.Write([]byte("A"))
+		time.Sleep(2 * time.Second)
+	}
 }

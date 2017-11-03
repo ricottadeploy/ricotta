@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/ricottadeploy/ricotta/security"
@@ -39,9 +41,8 @@ func initConfig() {
 var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Ricotta Agent")
-		agentid := viper.GetString("id")
-		fmt.Printf("Agent ID: %s\n", agentid)
 		generateCertIfNotExist()
+		connect()
 	},
 }
 
@@ -54,5 +55,46 @@ func generateCertIfNotExist() {
 		fmt.Println("Generated certificate")
 	}
 	fingerprint := security.GetX509CertSHA1Fingerprint(certFile)
-	fmt.Printf("SHA1 Fingerprint: %s\n", fingerprint)
+	fmt.Printf("Fingerprint: %s\n", fingerprint)
+}
+
+func connect() {
+	masterAddr := viper.GetString("master.address")
+	masterFingerprint := viper.GetString("master.fingerprint")
+	fmt.Printf("Connecting to master at %s\n", masterAddr)
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Fatal("Error loading certificate. ", err)
+	}
+	tlsCfg := &tls.Config{
+		InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{cert},
+	}
+	tlsCfg.BuildNameToCertificate()
+	conn, err := tls.Dial("tcp4", masterAddr, tlsCfg)
+	if err != nil {
+		log.Fatal("Error connecting to server: ", err)
+	}
+
+	defer func() {
+		conn.Close()
+	}()
+
+	fingPrint := security.GetPeerFingerprint(conn)
+	if fingPrint != masterFingerprint {
+		log.Fatalf("Trusted master fingerprint is: %s\nFingerprint of master at %s is: %s\nExiting...", masterFingerprint, masterAddr, fingPrint)
+	}
+	fmt.Printf("Master fingerprint verified. Connection successful.\n")
+	fmt.Println("Listening to commands from master")
+	for {
+		b := make([]byte, 1)
+		count, err := conn.Read(b)
+		if err != nil {
+			log.Fatalf("Error while communicating with master: %s", err)
+		}
+		if count > 0 {
+			fmt.Println(string(b))
+		}
+	}
 }
