@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/ricottadeploy/ricotta/comms"
+
 	"github.com/ricottadeploy/ricotta/master"
 	"github.com/ricottadeploy/ricotta/security"
 
@@ -121,8 +123,9 @@ func handle(conn net.Conn) {
 		return
 	}
 	fmt.Printf("ACCEPTED\n")
+	cc := comms.NewConn(conn)
 	for {
-		c.Write([]byte("A"))
+		cc.Write([]byte("How"))
 		time.Sleep(2 * time.Second)
 	}
 }

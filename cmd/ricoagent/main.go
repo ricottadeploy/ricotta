@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/ricottadeploy/ricotta/comms"
 	"github.com/ricottadeploy/ricotta/security"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -87,14 +88,12 @@ func connect() {
 	}
 	fmt.Printf("Master fingerprint verified. Connection successful.\n")
 	fmt.Println("Listening to commands from master")
+	cc := comms.NewConn(conn)
 	for {
-		b := make([]byte, 1)
-		count, err := conn.Read(b)
+		data, err := cc.Read()
 		if err != nil {
 			log.Fatalf("Error while communicating with master: %s", err)
 		}
-		if count > 0 {
-			fmt.Println(string(b))
-		}
+		fmt.Println(string(data))
 	}
 }
